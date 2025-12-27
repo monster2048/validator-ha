@@ -141,21 +141,6 @@ sudo systemctl start solana-ha
 sudo systemctl status solana-ha
 ```
 
-**Full instructions:** See [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md) | Get started in 15 minutes |
-| [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md) | Complete installation instructions |
-| [SYSTEMD_SETUP_GUIDE.md](SYSTEMD_SETUP_GUIDE.md) | systemd service configuration |
-| [FEATURES_DOCUMENTATION.md](FEATURES_DOCUMENTATION.md) | All features and capabilities |
-| [SLOT_LAG_DETECTION.txt](SLOT_LAG_DETECTION.txt) | Lag detection details |
-| [SELF_HEALTH_CHECK.txt](SELF_HEALTH_CHECK.txt) | Self-health verification |
-
 ---
 
 ## ⚙️ Key Features Explained
@@ -196,7 +181,7 @@ No race condition, no split-brain.
 
 ### Prometheus Metrics
 
-Available at `http://localhost:9101/metrics`:
+Available at `http://localhost:9099/metrics`:
 
 ```
 # Current role (0=passive, 1=active)
@@ -392,11 +377,6 @@ Contributions welcome! Please:
 
 ---
 
-## 📄 License
-
-See LICENSE file for details.
-
----
 
 ## 🙏 Acknowledgments
 
