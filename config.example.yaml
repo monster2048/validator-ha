@@ -1,0 +1,230 @@
+# Solana Validator HA Configuration Example
+# ==========================================
+
+# Logging configuration
+log:
+  level: info          # debug, info, warn, error
+  format: text         # text, json, logfmt
+
+# Validator configuration
+validator:
+  name: "primary-validator"
+  rpc_url: "http://localhost:8899"
+  
+  # Public IP address (RECOMMENDED - set this to avoid auto-detection failures)
+  # To find your IP: curl -s https://api.ipify.org
+  public_ip: "1.2.3.4"  # <-- CHANGE THIS to your validator's public IP
+  
+  # Optional: Custom public IP detection services (used if public_ip not set)
+  # public_ip_service_urls:
+  #   - "https://api.ipify.org"
+  #   - "https://checkip.amazonaws.com"
+  
+  identities:
+    # Path to active (voting) identity keypair - SHARED across HA peers
+    active: "/home/solana/.config/solana/active-identity.json"
+    
+    # Path to passive (non-voting) identity keypair - UNIQUE per validator
+    passive: "/home/solana/.config/solana/passive-identity.json"
+
+# Prometheus metrics server
+prometheus:
+  port: 9099
+  static_labels:
+    cluster: mainnet-beta
+    region: us-east-1
+    environment: production
+
+# Solana cluster configuration
+cluster:
+  name: "mainnet-beta"  # mainnet-beta, devnet, testnet
+  
+  # RPC URLs for cluster gossip queries
+  # 
+  # OPTION 1: Use local RPC only (RECOMMENDED - Simple & Fast)
+  # Template variable {{ .LocalRpcUrl }} references validator.rpc_url above
+  rpc_urls:
+    - "{{ .LocalRpcUrl }}"  # Uses validator.rpc_url
+  
+  # OPTION 2: Use public RPC only
+  # rpc_urls:
+  #   - "https://api.mainnet-beta.solana.com"
+  
+  # OPTION 3: Local primary, public fallback (Best resilience)
+  # rpc_urls:
+  #   - "{{ .LocalRpcUrl }}"                      # Try local first (fast)
+  #   - "https://api.mainnet-beta.solana.com"    # Fallback to public
+  
+  # OPTION 4: Multiple public RPCs
+  # rpc_urls:
+  #   - "https://api.mainnet-beta.solana.com"
+  #   - "https://solana-api.projectserum.com"
+  
+  # If rpc_urls is empty, uses default public RPC for the cluster
+
+# Failover configuration
+failover:
+  # Dry run mode - simulate failovers without executing commands
+  dry_run: false
+  
+  # How often to poll validator and cluster state
+  poll_interval_duration: "5s"
+  
+  # Number of consecutive polls without a leader before triggering failover
+  leaderless_samples_threshold: 3  # 3 x 5s = 15 seconds
+  
+  # Number of consecutive polls with no slot progress = stuck validator
+  # If active validator's slot doesn't increase for this many polls, trigger failover
+  stuck_samples_threshold: 3  # 3 x 5s = 15 seconds
+  
+  # Maximum slot lag allowed for active validator
+  # If active validator is more than this many slots behind cluster, trigger failover
+  max_slot_lag: 300  # slots
+  
+  # ============================================================================
+  # TAKEOVER ELECTION - IP-Based Priority (Default)
+  # ============================================================================
+  
+  # When multiple passive nodes detect failure, only the node with HIGHEST IP
+  # will attempt takeover. Others stay passive.
+  # 
+  # Benefits:
+  # ✅ Deterministic - always same result
+  # ✅ No race conditions - only one node tries
+  # ✅ No gossip timing issues
+  # ✅ Simple and predictable
+  # ✅ Fast - no delays needed
+  # 
+  # Example with 3 nodes:
+  #   192.168.1.10 (passive)  ← Lowest IP, stays passive
+  #   192.168.1.11 (passive)  ← Medium IP, stays passive  
+  #   192.168.1.12 (passive)  ← Highest IP, takes over! ✅
+  #
+  # Note: This is the ONLY election method (no configuration needed)
+  
+  # Peer validators in the HA cluster (excluding self)
+  #
+  # CRITICAL: When using SHARED active identity (all validators use the same
+  # active identity when they become the leader), you MUST provide BOTH
+  # identity AND ip for each peer.
+  #
+  # Why? When a peer becomes active, it switches to the shared active identity.
+  # PEER MATCHING: IP-ONLY (Simple and Reliable)
+  # 
+  # Peers are identified by IP address in gossip.
+  # This is simple, reliable, and avoids complexity with shared identities.
+  #
+  # The 'identity' field is optional and used only for documentation/reference.
+  #
+  peers:
+    backup-validator-1:
+      ip: "192.168.1.11"  # REQUIRED: IP address for matching
+      identity: "7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2"  # Optional: for reference
+    
+    backup-validator-2:
+      ip: "192.168.1.12"  # REQUIRED: IP address for matching
+      identity: "GdnSyH3YtwcxFvQrVVJMm1JhTS4QVX7MFsX56uJLUfiZ"  # Optional: for reference
+    
+    # Minimal config (IP-only works fine):
+    # backup-validator-3:
+    #   ip: "192.168.1.13"
+
+  # Active role transition (becoming the leader)
+  #
+  # Available template variables for command args and env:
+  #   {{ .ActiveIdentityKeypairFile }}  - Path to active identity keypair
+  #   {{ .PassiveIdentityKeypairFile }} - Path to passive identity keypair
+  #   {{ .ActiveIdentityPubkey }}       - Active identity public key
+  #   {{ .PassiveIdentityPubkey }}      - Passive identity public key
+  #   {{ .SelfName }}                   - This validator's name
+  #   {{ .LocalRpcUrl }}                - Local validator RPC URL (from validator.rpc_url)
+  #
+  active:
+    # RECOMMENDED: Use try-fallback approach
+    # Active promotion: Hot swap (zero downtime required)
+    command: "/usr/local/bin/ha-set-role.sh"
+    
+    # Command arguments
+    args:
+      - "active"
+      - "--ledger"
+      - "/mnt/ledger"  # Adjust to your ledger path
+      - "--rpc-url"
+      - "{{ .LocalRpcUrl }}"  # Uses validator.rpc_url from config
+      - "--active-identity"
+      - "{{ .ActiveIdentityKeypairFile }}"
+      - "--passive-identity"
+      - "{{ .PassiveIdentityKeypairFile }}"
+    
+    # Optional environment variables
+    env:
+      VALIDATOR_NAME: "{{ .SelfName }}"
+      ACTIVE_PUBKEY: "{{ .ActiveIdentityPubkey }}"
+      RPC_URL: "{{ .LocalRpcUrl }}"  # Can also use in environment variables
+    
+    # Optional hooks
+    hooks:
+      pre:
+        - name: "notify-slack-promoting"
+          command: "/home/solana/scripts/slack-notify.sh"
+          must_succeed: false  # Don't abort if notification fails
+          args:
+            - "--channel"
+            - "#validator-alerts"
+            - "--message"
+            - "🚀 {{ .SelfName }} is taking over as ACTIVE validator"
+      
+      post:
+        - name: "notify-slack-promoted"
+          command: "/home/solana/scripts/slack-notify.sh"
+          args:
+            - "--channel"
+            - "#validator-alerts"
+            - "--message"
+            - "✅ {{ .SelfName }} is now ACTIVE with identity {{ .ActiveIdentityPubkey }}"
+
+  # Passive role transition (stepping down)
+  passive:
+    # RECOMMENDED: Try-fallback approach (optimal!)
+    # Tries hot swap first (fast), falls back to restart if needed (safe)
+    command: "/usr/local/bin/ha-set-role.sh"
+    
+    args:
+      - "passive"
+      - "--ledger"
+      - "/mnt/ledger"  # Enables hot swap attempt (omit to skip to restart)
+      - "--rpc-url"
+      - "{{ .LocalRpcUrl }}"  # Uses validator.rpc_url from config
+      - "--passive-identity"
+      - "{{ .PassiveIdentityKeypairFile }}"
+    
+    # Optional hooks
+    hooks:
+      pre:
+        - name: "notify-slack-demoting"
+          command: "/home/solana/scripts/slack-notify.sh"
+          must_succeed: false
+          args:
+            - "--channel"
+            - "#validator-alerts"
+            - "--urgency"
+            - "high"
+            - "--message"
+            - "⚠️ {{ .SelfName }} is stepping down to PASSIVE"
+      
+      post:
+        - name: "notify-slack-demoted"
+          command: "/home/solana/scripts/slack-notify.sh"
+          args:
+            - "--channel"
+            - "#validator-alerts"
+            - "--message"
+            - "💤 {{ .SelfName }} is now PASSIVE with identity {{ .PassiveIdentityPubkey }}"
+        
+        - name: "log-to-monitoring"
+          command: "/home/solana/scripts/log-event.sh"
+          args:
+            - "--event"
+            - "failover_passive"
+            - "--validator"
+            - "{{ .SelfName }}"

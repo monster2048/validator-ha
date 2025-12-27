@@ -1,0 +1,34 @@
+[Unit]
+Description=Solana Validator HA Manager
+After=network-online.target
+Wants=network-online.target
+# Optional: Start after Solana validator
+# After=solana-validator.service
+
+[Service]
+Type=simple
+User=solana
+#WorkingDirectory=/home/solana/ha
+ExecStart=/usr/bin/python3 /home/solana/ha/solana_validator_ha.py /home/solana/ha/config.yaml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=solana-ha
+
+# Security hardening (optional but recommended)
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=strict
+#ProtectHome=true
+#ReadWritePaths=/home/solana/ha/logs
+
+# Environment (if needed)
+#Environment="PYTHONUNBUFFERED=1"
+
+# Logging
+# Logs go to journald (systemd journal)
+# Can also be viewed with: journalctl -u solana-ha -f
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,69 @@
+# Minimal Solana Validator HA Configuration
+# ==========================================
+# This is the SIMPLEST possible config - cluster section is optional!
+
+# Logging configuration
+log:
+  level: info          # debug, info, warn, error
+  format: text         # text, json, logfmt
+
+# Validator configuration
+validator:
+  name: "my-validator"
+  rpc_url: "http://localhost:8899"  # Your local RPC - used for everything!
+  
+  # Public IP address (RECOMMENDED)
+  public_ip: "1.2.3.4"  # <-- CHANGE THIS
+  
+  identities:
+    # IMPORTANT: Use your EXISTING validator identities!
+    active: "/home/sol/validator-keypair.json"    # Your voting identity
+    passive: "/home/sol/passive-keypair.json"     # Your backup identity
+
+# Note: No 'cluster' section needed! 
+# By default, uses validator.rpc_url for gossip queries. only if validator.rpc_url support method.
+
+# Failover configuration
+failover:
+  dry_run: false
+  poll_interval_duration: "5s"
+  leaderless_samples_threshold: 3
+  stuck_samples_threshold: 3
+  max_slot_lag: 300
+  
+  # Peer validators
+  peers:
+    validator2:
+      ip: "192.168.1.11"
+    validator3:
+      ip: "192.168.1.12"
+  
+  # Active role transition
+  active:
+    command: "/usr/local/bin/ha-set-role.sh"
+    args:
+      - "active"
+      - "--ledger"
+      - "/mnt/ledger"
+      - "--rpc-url"
+      - "{{ .LocalRpcUrl }}"
+      - "--active-identity"
+      - "{{ .ActiveIdentityKeypairFile }}"
+      - "--passive-identity"
+      - "{{ .PassiveIdentityKeypairFile }}"
+  
+  # Passive role transition
+  passive:
+    command: "/usr/local/bin/ha-set-role.sh"
+    args:
+      - "passive"
+      - "--ledger"
+      - "/mnt/ledger"
+      - "--rpc-url"
+      - "{{ .LocalRpcUrl }}"
+      - "--passive-identity"
+      - "{{ .PassiveIdentityKeypairFile }}"
+
+# Optional: Prometheus metrics
+prometheus:
+  port: 9099

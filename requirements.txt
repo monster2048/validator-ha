@@ -1,0 +1,38 @@
+# Solana Validator HA - Python Dependencies
+# ==========================================
+
+# Core Dependencies
+# -----------------
+
+# Async HTTP client
+aiohttp>=3.9.0
+
+# YAML configuration parsing
+PyYAML>=6.0.1
+
+# Prometheus metrics
+prometheus-client>=0.19.0
+
+# Base58 encoding for Solana keypairs
+base58>=2.1.1
+
+# Development Dependencies
+# ------------------------
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+# Or: pip install -e ".[dev]"
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-timeout>=2.1.0
+pytest-mock>=3.11.0
+
+# Code Quality
+# ------------
+# Uncomment these for development:
+# mypy>=1.7.0
+# pylint>=3.0.0
+# black>=23.0.0
+# flake8>=6.1.0
+# isort>=5.12.0

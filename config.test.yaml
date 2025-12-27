@@ -1,0 +1,56 @@
+# Quick Test Config with Manual IP
+# This config has public_ip set to avoid auto-detection
+
+log:
+  level: debug
+  format: text
+
+validator:
+  name: "test-validator"
+  rpc_url: "http://localhost:8899"
+  
+  # Manual IP - NO auto-detection needed
+  public_ip: "127.0.0.1"  # Using localhost for testing
+  
+  identities:
+    active: "/tmp/active-test.json"
+    passive: "/tmp/passive-test.json"
+
+prometheus:
+  port: 9099
+  static_labels:
+    cluster: testnet
+    region: test
+
+cluster:
+  name: "testnet"
+  rpc_urls:
+    - "http://localhost:8899"
+
+failover:
+  dry_run: true  # Safe for testing
+  poll_interval_duration: "10s"
+  leaderless_samples_threshold: 3
+  takeover_jitter_duration: "3s"
+  
+  peers:
+    test-peer-1:
+      ip: "10.0.1.100"
+    test-peer-2:
+      ip: "10.0.1.101"
+  
+  active:
+    command: "/bin/echo"
+    args:
+      - "Activating"
+    hooks:
+      pre: []
+      post: []
+  
+  passive:
+    command: "/bin/echo"
+    args:
+      - "Going passive"
+    hooks:
+      pre: []
+      post: []
