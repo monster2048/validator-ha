@@ -39,10 +39,9 @@ Failover (Validator 1 Fails):
 │                     │          │                     │
 │                     │          │  HA Manager         │
 │                     │          │  1. Detected (15s)  │
-│                     │          │  2. Verified (1s)   │
-│                     │          │  3. Took Over (2s)  │
+│                     │          │  3. Took Over (0s)  │
 └─────────────────────┘          └─────────────────────┘
-                                  Total: ~18 seconds
+                                  Total: ~15 seconds
 ```
 
 ---
@@ -54,6 +53,7 @@ Failover (Validator 1 Fails):
 - **Solana**: Agave/Solana validator software
 - **Network**: Stable connectivity between validators
 - **RPC**: Both validators must expose RPC endpoints
+- **Init State**: validator should always start in passive mode. HA will promote passive node as needed.
 
 ---
 
@@ -151,9 +151,8 @@ Detects when active validator fails and automatically promotes passive:
 
 ```
 Detection Time: 15 seconds (3 polls × 5s)
-Verification:   1 second (health check)
-Transition:     1-2 seconds (hot swap)
-Total:          ~17-20 seconds
+Transition:     0 seconds (hot swap, first passive node in health state will take over.)
+Total:          15 seconds
 ```
 
 ### Health Monitoring
@@ -231,9 +230,9 @@ INFO - [DRY RUN] Takeover complete (simulated)
 ### Manual Failover Test
 
 1. Start both validators (one active, one passive)
-2. Stop active: `sudo systemctl stop solana-validator`
-3. Watch passive validator take over (~20 seconds)
-4. Restart original: `sudo systemctl start solana-validator`
+2. Stop active: `sudo systemctl stop agave-validator`
+3. Watch passive validator take over (~15 seconds)
+4. Restart original: `sudo systemctl start agave-validator`
 5. Should return as passive
 
 ---
@@ -288,9 +287,9 @@ log_level: "INFO"
 
 | Parameter | Default | Conservative | Aggressive |
 |-----------|---------|--------------|------------|
-| poll_interval | 5s | 10s | 3s |
-| threshold | 3 | 5 | 2 |
-| max_slot_lag | 300 | 500 | 150 |
+| poll_int  | 5s      | 10s          | 3s         |
+| threshold | 3       | 5            | 2          |
+| slot_lag  | 300     | 500          | 150        |
 
 ---
 
@@ -384,8 +383,8 @@ Built for the Solana validator community.
 
 Thanks to:
 - Solana Labs for Agave validator software
-- The Solana validator community
-- All contributors and testers
+- Sol Stratigies's HA code.
+
 
 ---
 
