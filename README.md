@@ -86,14 +86,6 @@ sudo cp /home/sol/validator-keypair.json /opt/solana-ha/config/active-identity.j
 # Copy your BACKUP identity OR create new (needs stake delegation):
 solana-keygen new -o /opt/solana-ha/config/passive-identity.json
 
-# Get pubkeys
-ACTIVE=$(solana-keygen pubkey config/active-identity.json)
-PASSIVE=$(solana-keygen pubkey config/passive-identity.json)
-echo "Active:  $ACTIVE"
-echo "Passive: $PASSIVE"
-
-# Copy both to validator 2
-scp config/*.json user@validator2:/opt/solana-ha/config/
 ```
 
 ### 3. Configure
@@ -108,8 +100,6 @@ validator:
 validator_identities:
   active_keypair: "/opt/solana-ha/config/active-identity.json"
   passive_keypair: "/opt/solana-ha/config/passive-identity.json"
-  active_pubkey: "YOUR_ACTIVE_PUBKEY"
-  passive_pubkey: "YOUR_PASSIVE_PUBKEY"
 
 failover:
   dry_run: true  # Test mode first!
@@ -171,14 +161,14 @@ Total:          15 seconds
 
 ### Split-Brain Prevention
 
-Ensures only ONE validator is active: The passive node that is healthy and have biggest IP will take over.
+Ensures only ONE validator is active: The passive node that is healthy and has biggest IP will take over.
 No race condition, no split-brain.
 
 ---
 
 ## 📊 Monitoring
 
-### Prometheus Metrics
+### Prometheus Metrics (this part is not tested)
 
 Available at `http://localhost:9099/metrics`:
 
