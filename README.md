@@ -39,7 +39,7 @@ Failover (Validator 1 Fails):
 │                     │          │                     │
 │                     │          │  HA Manager         │
 │                     │          │  1. Detected (15s)  │
-│                     │          │  3. Took Over (0s)  │
+│                     │          │  2. Took Over (0s)  │
 └─────────────────────┘          └─────────────────────┘
                                   Total: ~15 seconds
 ```
