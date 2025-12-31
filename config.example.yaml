@@ -11,6 +11,11 @@ validator:
   name: "primary-validator"
   rpc_url: "http://localhost:8899"
   
+  # Systemd service name for the validator
+  # Used to restart the validator if identity switch commands fail
+  # Default: solana-runner.service
+  service_name: "solana-runner.service"
+  
   # Public IP address (RECOMMENDED - set this to avoid auto-detection failures)
   # To find your IP: curl -s https://api.ipify.org
   public_ip: "1.2.3.4"  # <-- CHANGE THIS to your validator's public IP
@@ -101,6 +106,33 @@ failover:
   #   192.168.1.12 (passive)  ← Highest IP, takes over! ✅
   #
   # Note: This is the ONLY election method (no configuration needed)
+  
+  # ============================================================================
+  # SELF-RESTART ON FAILURE (Automatic, Always Enabled)
+  # ============================================================================
+  
+  # If promotion fails, the HA manager automatically restarts itself immediately
+  # to give other nodes a chance to take over. This is ALWAYS enabled.
+  # 
+  # How it works:
+  # 1. Highest IP node tries to promote → FAILS
+  # 2. Immediately RESTARTS itself (no retries, no configuration needed)
+  # 3. While restarting, it's offline temporarily
+  # 4. Second-highest IP node becomes highest available
+  # 5. Second-highest promotes → SUCCESS! ✅
+  # 
+  # Benefits:
+  # ✅ Fail fast - don't waste time on retries
+  # ✅ Automatic recovery - no manual intervention
+  # ✅ Cluster gets a leader quickly (~1 second after failure)
+  # ✅ Failing node resets and can try again later
+  # ✅ No configuration needed - just works!
+  # 
+  # Timeline example (3s poll interval):
+  #   T+15s: Node B tries promote → FAILS → Restart triggered
+  #   T+16s: Node B offline (restarting)
+  #   T+16s: Node C (2nd highest) → Promotes → SUCCESS! ✅
+  #   T+21s: Node B back online in PASSIVE mode
   
   # Peer validators in the HA cluster (excluding self)
   #

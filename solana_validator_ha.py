@@ -86,6 +86,7 @@ class FailoverConfig:
     leaderless_samples_threshold: int = 3
     stuck_samples_threshold: int = 3  # How many polls with no slot progress = stuck
     max_slot_lag: int = 300  # How many slots behind cluster = too far behind
+    # Note: Promotion failures trigger immediate self-restart (no retries)
     peers: Dict[str, PeerConfig] = field(default_factory=dict)
     active_command: Optional[CommandConfig] = None
     passive_command: Optional[CommandConfig] = None
@@ -110,6 +111,7 @@ class Config:
     validator_name: str
     validator_rpc_url: str
     validator_identities: ValidatorIdentities
+    validator_service_name: str = "solana-runner.service"  # Systemd service name for validator
     cluster_name: str = "unknown"  # Optional - only used for display
     cluster_rpc_urls: List[str] = field(default_factory=list)  # Optional - defaults to local RPC
     failover: FailoverConfig = None
@@ -1225,6 +1227,19 @@ To manually find your public IP:
                     event_type="takeover",
                     result="failure"
                 ).inc()
+                
+                # CRITICAL: Self-restart mechanism (fail-fast)
+                # If promotion fails, restart ourselves immediately to give other nodes a chance
+                # No retries - if it failed once, likely won't succeed on retry
+                self.logger.critical("=" * 70)
+                self.logger.critical("⚠️  PROMOTION FAILED - RESTARTING VALIDATOR & HA MANAGER")
+                self.logger.critical("⚠️  Restarting validator to fix potential issues")
+                self.logger.critical("⚠️  Restarting HA manager to give other nodes a chance")
+                self.logger.critical("=" * 70)
+                
+                # Restart validator service, this will put node into unhealthy mode for period of time, other node will has opportunity to take over 
+                await self._restart_validator()
+                
                 return
             
             # Execute post-hooks
@@ -1257,6 +1272,40 @@ To manually find your public IP:
                 result="error"
             ).inc()
     
+    async def _restart_validator(self):
+        """Restart the validator service
+        
+        This is used when identity switch commands fail.
+        Restarting the validator may fix issues like:
+        - Locked identity files
+        - Validator in bad state
+        - File permission issues
+        """
+        self.logger.critical("=" * 70)
+        self.logger.critical("⚠️  RESTARTING VALIDATOR SERVICE")
+        self.logger.critical(f"⚠️  Service: {self.config.validator_service_name}")
+        self.logger.critical("=" * 70)
+        self.logger.critical("Restarting validator service...")
+        
+        try:
+            # Use systemctl to restart validator
+            cmd = ["systemctl", "restart", self.config.validator_service_name]
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                self.logger.info(f"Validator service restart command executed successfully")
+            else:
+                self.logger.error(
+                    f"Validator service restart command failed: "
+                    f"exit code {result.returncode}, stderr: {result.stderr}"
+                )
+            
+        except Exception as e:
+            self.logger.error(f"Failed to restart validator service: {e}")
+            self.logger.critical(
+                "Could not restart validator! Manual intervention required."
+            )
+    
     async def _execute_passive_transition(self):
         """Execute transition to passive role"""
         self.logger.info("=" * 60)
@@ -1274,13 +1323,25 @@ To manually find your public IP:
                 self.config.failover.passive_command,
                 "passive"
             ):
-                self.logger.critical("Passive command failed! MANUAL INTERVENTION REQUIRED!")
+                self.logger.critical("Passive command failed!")
                 self.metrics.failover_events.labels(
                     **self.config.prometheus_labels,
                     validator_name=self.config.validator_name,
                     event_type="seppuku",
                     result="failure"
                 ).inc()
+                
+                # CRITICAL: Restart validator service
+                # If passive transition fails, validator might be in bad state
+                # Restarting it may fix the issue
+                self.logger.critical("=" * 70)
+                self.logger.critical("⚠️  SEPPUKU FAILED - RESTARTING VALIDATOR SERVICE")
+                self.logger.critical("⚠️  Passive transition failed, restarting validator to recover")
+                self.logger.critical("=" * 70)
+                
+                # Restart validator service
+                await self._restart_validator()
+                
                 return
             
             # Execute post-hooks only if passive command succeeded
@@ -1558,6 +1619,7 @@ def load_config(config_path: str) -> Config:
         validator_name=data['validator']['name'],
         validator_rpc_url=data['validator'].get('rpc_url', 'http://localhost:8899'),
         validator_identities=identities,
+        validator_service_name=data['validator'].get('service_name', 'solana-runner.service'),
         cluster_name=cluster_name,
         cluster_rpc_urls=cluster_rpc_urls,
         failover=failover,
